@@ -1,0 +1,28 @@
+apiVersion: intel.com/v1alpha1
+kind: GPUFirmwareUpdate
+metadata:
+  labels:
+    app.kubernetes.io/name: intel-gpu-base-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gpufirmwareupdate-amc-sample
+spec:
+  # AMC update targets nodes by label; no pciDeviceID is required because
+  # the Redfish interface handles device targeting internally.
+  # TODO: should AMC use BDF address or pci device ID for the update
+  nodeSelector:
+    gpu.intel.com/device-id.0300-e20b.present: "true"
+
+  updaterImage: "docker.io/intel/gpu-fwupdater:devel"
+  updateMethod: "direct"
+  updateTaint:  "gpu-update-in-progress"
+
+  # Reference to the Secret holding the Redfish credentials (username/password).
+  # The Secret must exist in the operator namespace before applying this CR.
+  amcCredentialsSecret: amc-credentials
+
+  content:
+    containerImage: docker.io/intel/gpu-firmware-update-files:devel
+
+    files:
+    - type: "AMC"
+      filename: "amc_firmware.bin"

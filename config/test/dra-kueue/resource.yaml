@@ -1,0 +1,15 @@
+- op: add
+  path: /spec/containers/0/resources/claims
+  value:
+    - name: resource
+
+- op: add
+  path: /spec/resourceClaims
+  value:
+      - name: resource
+        resourceClaimTemplateName: example-gpu-claim
+
+- op: add
+  path: /metadata/labels
+  value:
+    kueue.x-k8s.io/queue-name: gpu-queue

@@ -1,0 +1,106 @@
+receivers:
+  # The Intel XPU receiver.
+  intelxpu:
+    # Log level (debug, info, warn, error)
+    log_level: info
+    # Metrics data collection interval.
+    # Must be at least twice the sampling_interval.
+    collection_interval: 5s
+    # Initial start delay for metrics collection, any non positive value is assumed to be immediately.
+    initial_delay: 1s
+    # Metrics collection timeout.
+    timeout: 0
+    # Sampling interval for the high-frequency metrics.
+    sampling_interval: 1s
+    # Configuration for enabling/disabling individual metrics.
+    # See receiver/intelxpu/documentation.md for list of available metrics.
+    metrics:
+#      hw.memory.size:
+#        enabled: false
+
+processors:
+  intelxpustatus:
+    rules:
+      - name: "Intel GPU core temperature health"
+        source_metric: "hw.temperature"
+        parent_metric: "hw.gpu.info"
+        parent_ref_attribute: "hw.id"
+        parent_filters:
+          - key: "pci.vendor_id"
+            values: ["8086"]
+        component_filters:
+          - key: "hw.sensor_location"
+            values: ["gpu"]
+        copy_attributes: ["hw.id", "hw.name", "pci.bdf", "hw.sensor_location"]
+        add_attributes:
+          hw.type: "temperature"
+        # Ordered list of state rules. The rules should be ordered by increasing severity.
+        # All rules are evaluated, the last matching one will be active.
+        states:
+          # Default state
+          - state_name: "ok"
+          - state_name: "warning"
+            conditions:
+              - value: 105.0
+      - name: "Intel GPU memory temperature health"
+        source_metric: "hw.temperature"
+        parent_metric: "hw.gpu.info"
+        parent_ref_attribute: "hw.id"
+        parent_filters:
+          - key: "pci.vendor_id"
+            values: ["8086"]
+        component_filters:
+          - key: "hw.sensor_location"
+            values: ["memory"]
+        copy_attributes: ["hw.id", "hw.name", "pci.bdf", "hw.sensor_location"]
+        add_attributes:
+          hw.type: "temperature"
+        # Ordered list of state rules. The rules should be ordered by increasing severity.
+        # All rules are evaluated, the last matching one will be active.
+        states:
+          # Default state
+          - state_name: "ok"
+          - state_name: "warning"
+            conditions:
+              - value: 85.0
+
+      - name: "Intel GPU power limit"
+        source_metric: "hw.power"
+        parent_metric: "hw.gpu.info"
+        parent_ref_attribute: "hw.id"
+        parent_filters:
+          - key: "pci.vendor_id"
+            values: ["8086"]
+        component_filters:
+          - key: "hw.sensor_location"
+            values: ["card"]
+        copy_attributes: ["hw.id", "hw.name", "pci.bdf", "hw.sensor_location"]
+        add_attributes:
+          hw.type: "power"
+        # Ordered list of state rules. The rules should be ordered by increasing severity.
+        # All rules are evaluated, the last matching one will be active.
+        states:
+          # Default state
+          - state_name: "ok"
+          - state_name: "warning"
+            conditions:
+              - value: 150.0
+
+exporters:
+  intelxpuinfo:
+    endpoint: "/run/xpumd/intelxpuinfo.sock"
+  prometheus:
+    endpoint: "0.0.0.0:8080"
+
+extensions:
+
+service:
+  telemetry:
+    logs:
+      level: info
+      disable_stacktrace: true
+  pipelines:
+    metrics:
+      receivers: [intelxpu]
+      processors: [intelxpustatus]
+      exporters: [intelxpuinfo,prometheus]

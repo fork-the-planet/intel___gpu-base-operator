@@ -1,0 +1,73 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# @file xpum-fwupdate-job.yaml
+#
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: intel-fwupdate-job
+spec:
+  podFailurePolicy:
+    rules:
+    - action: FailJob
+      onExitCodes:
+        containerName: updater
+        operator: NotIn
+        values: [0]
+    - action: FailJob
+      onPodConditions:
+      - type: ConfigIssue
+  template:
+    spec:
+      volumes:
+      - name: update
+        emptyDir:
+          sizeLimit: 64Mi
+      automountServiceAccountToken: false
+      initContainers:
+      - name: fw-copy
+        image: ubuntu:24.04 # replaced by the operator
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/sh", "-c" ]
+        args:
+          - "cp /fwupdate/* /update/"
+        volumeMounts:
+        - name: update
+          mountPath: /update
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ "ALL" ]
+          seccompProfile:
+            type: RuntimeDefault
+      containers:
+      - name: updater
+        image: intel/xpumanager:v1.2.27 # replaced by the operator
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/sh", "-c" ]
+        args:
+          - "sleep 20 && sleep $RANDOM"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: true
+          runAsUser: 0
+          privileged: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: [ "ALL" ]
+        volumeMounts:
+        - name: update
+          mountPath: /update
+      imagePullSecrets:
+      restartPolicy: Never
+

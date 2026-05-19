@@ -1,0 +1,61 @@
+name: build and push common
+on:
+  workflow_call:
+    inputs:
+      runner:
+        required: true
+        type: string
+
+permissions:
+  pull-requests: read # for golangci/golangci-lint-action to fetch pull requests
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ${{ vars.REGISTRY }}
+  PROJECT: ${{ vars.PROJECT }}
+
+jobs:
+  push:
+    name: Publish Operator image
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          clean: true
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+      - name: Generate tag
+        id: gentag
+        run: |
+          TAG=$(sed -n 's/^TAG ?= \(.*\)/\1/p' Makefile)
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+      - run: make docker-build
+      - name: Log in to GitHub Container Registry
+        if: inputs.runner != 'self-hosted'
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push to GitHub Container Registry
+        run: |
+          docker tag intel/intel-gpu-base-operator:${{ steps.gentag.outputs.TAG }} ${REGISTRY}/${PROJECT}/intel-gpu-base-operator:${{ steps.gentag.outputs.TAG }}
+          docker push ${REGISTRY}/${PROJECT}/intel-gpu-base-operator:${{ steps.gentag.outputs.TAG }}
+      - name: Get image digest
+        if: ${{ steps.gentag.outputs.TAG != 'devel' }}
+        id: digest
+        run: |
+          echo "image_sha=$(docker inspect --format='{{index .RepoDigests 0}}' ${REGISTRY}/${PROJECT}/intel-gpu-base-operator:${{ steps.gentag.outputs.TAG }})" >> $GITHUB_OUTPUT
+      # TODO: remove "false &&" when the repository is made public
+      - name: Install cosign
+        if: ${{ false && steps.gentag.outputs.TAG != 'devel' }}
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 #v4.1.1
+      - name: Keyless image sign
+        if: ${{ false && steps.gentag.outputs.TAG != 'devel' }}
+        run: |
+          cosign sign --yes ${{ steps.digest.outputs.image_sha }}
+

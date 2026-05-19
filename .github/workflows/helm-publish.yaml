@@ -1,0 +1,45 @@
+name: Package and upload helm
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        default: "self-hosted"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ vars.REGISTRY }}
+  PROJECT: ${{ vars.PROJECT }}
+  RELEASE_REGISTRY: ${{ vars.REGISTRY }}/${{ vars.PROJECT }}
+
+jobs:
+  push-helm-charts:
+    runs-on: ${{ inputs.runner }}
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - uses: azure/setup-helm@v4.3.0
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        if: inputs.runner != 'self-hosted'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push packaged Helm chart
+        run: make helm-push-chart
+
+      - name: Push packaged Helm policy chart
+        run: make helm-push-policy-chart

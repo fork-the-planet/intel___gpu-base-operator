@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpupod
+  labels:
+    app: gpupod
+spec:
+  terminationGracePeriodSeconds: 5
+  containers:
+  - name: gpu
+    image: ubuntu:24.04
+    command: ['sh','-c','while sleep 10; do find /dev/dri; env; done']
+    resources:
+      limits:
+      claims:

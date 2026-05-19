@@ -1,0 +1,34 @@
+apiVersion: intel.com/v1alpha1
+kind: GPUFirmwareUpdate
+metadata:
+  labels:
+    app.kubernetes.io/name: intel-gpu-base-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gpufirmwareupdate-sample
+spec:
+  nodeSelector:
+    gpu.intel.com/device-id.0300-e20b.present: "true"
+
+  pciDeviceID: "0xe20b"
+
+  holdAfterCanary: true
+
+  updaterImage: "docker.io/intel/gpu-fwupdater:devel"
+
+  updateMethod: "canary"
+  updateTaint:  "gpu-update-in-progress"
+
+  tolerations:
+    - key: "some-other-toleration"
+      effect: "NoSchedule"
+
+  content:
+    containerImage: docker.io/intel/gpu-firmware-update-files:devel
+
+    files:
+      - filename: "bmg_OpromCode_golden.bin"
+        type: "OPROM_CODE"
+      - filename: "bmg_g21_fwupdate_golden.bin"
+        type: "GFX"
+      - filename: "bmg_ibc-frd-b36_e20b_config-data.bin"
+        type: "GFX_DATA"

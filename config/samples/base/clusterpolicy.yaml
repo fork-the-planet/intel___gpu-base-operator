@@ -1,0 +1,20 @@
+apiVersion: intel.com/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: gpu-policy
+spec:
+  useNFDLabeling: false
+  resourceMonitoring: true
+  prometheusIntegration: false
+  enableKueue: false
+  logLevel: 2
+
+  health:
+    coreTemperatureThreshold: 100
+    memoryTemperatureThreshold: 100
+    checkIntervalSeconds: 5
+
+  xpu:
+    image: ghcr.io/intel/xpumanager/xpumd:v2.0.0-rc.0@sha256:8f020012f68888314402c0332a53718ace4ade9913476bbd125af89edb760a8b
+    logLevel: 2
+

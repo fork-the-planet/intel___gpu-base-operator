@@ -1,0 +1,295 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: clusterpolicies.intel.com
+spec:
+  group: intel.com
+  names:
+    kind: ClusterPolicy
+    listKind: ClusterPolicyList
+    plural: clusterpolicies
+    singular: clusterpolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.devicePluginStatus
+      name: DP
+      type: string
+    - jsonPath: .status.draStatus
+      name: DRA
+      type: string
+    - jsonPath: .status.xpuManagerStatus
+      name: XPU
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterPolicy is the Schema for the clusterpolicies API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterPolicySpec defines the desired state of ClusterPolicy.
+            properties:
+              dp:
+                description: DevicePluginSpec defines the desired state of DevicePlugin.
+                properties:
+                  allowIDs:
+                    description: |-
+                      AllowIDs and DenyIDs are used to control which devices are registered as resources.
+                      Allow or deny certain PCI Device IDs. Both cannot be used together. Format is '0xabcd'.
+                    items:
+                      type: string
+                    type: array
+                  byPathMode:
+                    description: ByPathMode controls DRI by-path entries are exposed
+                      by the plugin.
+                    enum:
+                    - single
+                    - all
+                    - none
+                    type: string
+                  denyIDs:
+                    items:
+                      type: string
+                    type: array
+                  levelzero:
+                    description: Container image for the Level Zero companion container
+                    type: string
+                  logLevel:
+                    format: int32
+                    type: integer
+                  plugin:
+                    description: Container image for the GPU plugin
+                    type: string
+                type: object
+              dra:
+                description: DynamicResourceAllocationSpec defines the desired state
+                  of DynamicResourceAllocation.
+                properties:
+                  deviceTaints:
+                    description: |-
+                      DeviceTaints controls whether DRA applies taints to the GPU devices if
+                      the devices are indicated as unhealthy by the health monitoring.
+                    type: boolean
+                  image:
+                    type: string
+                  logLevel:
+                    format: int32
+                    type: integer
+                  podHealthCheck:
+                    default: true
+                    description: Enable DRA Pod's health check.
+                    type: boolean
+                type: object
+              enableKueue:
+                description: Set up Kueue queues for node resources
+                type: boolean
+              health:
+                description: |-
+                  Enable health monitoring in DP/DRA
+                  These values are applied to all the Intel GPU devices in the cluster.
+                  Mechanism to monitor the values differ between DP and DRA. DP uses LevelZero API
+                  directly, while DRA relies on the health status provided by XPU Manager.
+                properties:
+                  checkIntervalSeconds:
+                    default: 5
+                    description: Not supported by Device Plugin
+                    format: int32
+                    maximum: 3600
+                    minimum: 1
+                    type: integer
+                  coreTemperatureThreshold:
+                    default: 100
+                    format: int32
+                    maximum: 130
+                    minimum: 1
+                    type: integer
+                  memoryTemperatureThreshold:
+                    default: 100
+                    format: int32
+                    maximum: 130
+                    minimum: 1
+                    type: integer
+                type: object
+              kueue:
+                description: Define Kueue queues
+                properties:
+                  equalResources:
+                    description: Cluster queues for dividing resources evenly
+                    items:
+                      description: ClusterQueueSpec defines a Kueue ClusterQueues
+                      properties:
+                        localQueues:
+                          description: List of Kueue LocalQueues to create for this
+                            ClusterQueue
+                          items:
+                            description: LocalQueueSpec defines a Kueue Local Queue
+                            properties:
+                              name:
+                                description: Name of the cluster queue
+                                type: string
+                              namespace:
+                                description: Namespace for the local queue
+                                type: string
+                            required:
+                            - name
+                            - namespace
+                            type: object
+                          type: array
+                        name:
+                          description: Name of the cluster queue
+                          type: string
+                      required:
+                      - localQueues
+                      - name
+                      type: object
+                    type: array
+                required:
+                - equalResources
+                type: object
+              logLevel:
+                description: LogLevel to overwrite the default log level of the components.
+                format: int32
+                type: integer
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+              prometheusIntegration:
+                description: Deploy Kubernetes components to integrate with Prometheus.
+                type: boolean
+              pullSecret:
+                description: Pull secret is shared with all the deployments.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              resourceMonitoring:
+                description: |-
+                  To enable resource monitoring via XPU or not. Deploys GPU Plugin or DRA with monitoring enabled and
+                  XPU Manager DaemonSet if true.
+                type: boolean
+              resourceRegistration:
+                description: 'Which type of resource registration is to be used: Device
+                  plugin (dp) or Dynamic Resource Allocation (dra).'
+                enum:
+                - dp
+                - dra
+                type: string
+              tolerations:
+                items:
+                  description: |-
+                    The pod this Toleration is attached to tolerates any taint that matches
+                    the triple <key,value,effect> using the matching operator <operator>.
+                  properties:
+                    effect:
+                      description: |-
+                        Effect indicates the taint effect to match. Empty means match all taint effects.
+                        When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: |-
+                        Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                        If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                      type: string
+                    operator:
+                      description: |-
+                        Operator represents a key's relationship to the value.
+                        Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod can
+                        tolerate all taints of a particular category.
+                      type: string
+                    tolerationSeconds:
+                      description: |-
+                        TolerationSeconds represents the period of time the toleration (which must be
+                        of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                        it is not set, which means tolerate the taint forever (do not evict). Zero and
+                        negative values will be treated as 0 (evict immediately) by the system.
+                      format: int64
+                      type: integer
+                    value:
+                      description: |-
+                        Value is the taint value the toleration matches to.
+                        If the operator is Exists, the value should be empty, otherwise just a regular string.
+                      type: string
+                  type: object
+                type: array
+              useNFDLabeling:
+                description: Use NFD rule to label nodes.
+                type: boolean
+              xpu:
+                description: XpuManagerSpec defines the desired state of XpuManager.
+                properties:
+                  configMapOverride:
+                    description: |-
+                      ConfigMapOverride allows overriding the default OpenTelemetry Collector configuration used by XPU Manager.
+                      Configmap has to be in the same namespace as the operator and contain a key "config.yaml" with the configuration content.
+                      The value should be a YAML string containing the configuration. If not set, a default configuration will be used.
+                    type: string
+                  image:
+                    type: string
+                  logLevel:
+                    format: int32
+                    type: integer
+                  monitoringResource:
+                    description: |-
+                      Set monitoring resource name for Device Plugin use. If not set, the default resource
+                      name "gpu.intel.com/xe_monitoring" will be used.
+                    enum:
+                    - i915_monitoring
+                    - xe_monitoring
+                    - monitoring
+                    type: string
+                type: object
+            required:
+            - resourceRegistration
+            type: object
+          status:
+            description: ClusterPolicyStatus defines the observed state of ClusterPolicy.
+            properties:
+              devicePluginStatus:
+                type: string
+              draStatus:
+                type: string
+              errors:
+                items:
+                  type: string
+                type: array
+              xpuManagerStatus:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

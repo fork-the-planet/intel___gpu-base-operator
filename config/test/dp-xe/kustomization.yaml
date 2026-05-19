@@ -1,0 +1,7 @@
+resources:
+- ../base
+
+patches:
+  - path: resource.yaml
+    target:
+      kind: Pod

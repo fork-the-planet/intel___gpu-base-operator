@@ -1,0 +1,21 @@
+apiVersion: v2
+name: intel-gpu-base-operator-chart
+description: A Helm chart for Intel GPU Base Operator
+type: application
+version: 0.0.1
+appVersion: "0.0.1"
+
+dependencies:
+  - name: node-feature-discovery
+    condition: nfd.install
+    tags:
+      - nfd
+    version: ~0.18
+    repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
+
+  - name: kueue
+    condition: kueue.install
+    tags:
+      - kueue
+    version: ~0.17
+    repository: oci://registry.k8s.io/kueue/charts

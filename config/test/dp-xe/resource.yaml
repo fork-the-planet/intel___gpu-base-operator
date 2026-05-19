@@ -1,0 +1,4 @@
+- op: add
+  path: /spec/containers/0/resources/limits
+  value:
+    gpu.intel.com/xe: "1"

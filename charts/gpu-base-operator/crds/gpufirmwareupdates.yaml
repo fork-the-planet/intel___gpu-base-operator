@@ -1,0 +1,231 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: gpufirmwareupdates.intel.com
+spec:
+  group: intel.com
+  names:
+    kind: GPUFirmwareUpdate
+    listKind: GPUFirmwareUpdateList
+    plural: gpufirmwareupdates
+    singular: gpufirmwareupdate
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: GPUFirmwareUpdate is the Schema for the gpufirmwareupdates API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: GPUFirmwareUpdateSpec defines the desired state of GPUFirmwareUpdate.
+            properties:
+              amcCredentialsSecret:
+                description: |-
+                  AMCCredentialsSecret is the name of a Kubernetes Secret (in the operator namespace)
+                  containing 'username' and 'password' keys used for the AMC firmware update method
+                  (redfish interface). Required when any firmware file has type AMC.
+                type: string
+              content:
+                description: List of GPU firmwares to be updated.
+                properties:
+                  containerImage:
+                    description: Container image containing the firmware files under
+                      /update directory.
+                    type: string
+                  files:
+                    items:
+                      properties:
+                        checksum:
+                          description: |-
+                            SHA256 checksum of the firmware file. Format: sha256:<64 hex characters>.
+                            When set, content.containerImage must be digest-pinned (image@sha256:...).
+                          pattern: ^sha256:[0-9a-f]{64}$
+                          type: string
+                        filename:
+                          description: Filename of the firmware file without any directories.
+                          type: string
+                        type:
+                          enum:
+                          - GFX
+                          - GFX_DATA
+                          - GFX_CODE_DATA
+                          - GFX_PSCBIN
+                          - AMC
+                          - FAN_TABLE
+                          - VR_CONFIG
+                          - OPROM_CODE
+                          - OPROM_DATA
+                          type: string
+                      required:
+                      - filename
+                      - type
+                      type: object
+                    type: array
+                required:
+                - containerImage
+                - files
+                type: object
+              holdAfterCanary:
+                description: |-
+                  HoldAfterCanary, when true, pauses the update in the canary_done state after a
+                  successful canary update and waits for HoldAfterCanary to be set to false.
+                  When false (default), the full rollout starts automatically.
+                type: boolean
+              imagePullSecret:
+                description: Pull secret for the updater image and the content image,
+                  if needed.
+                type: string
+              insecureSkipTLSVerify:
+                description: |-
+                  InsecureSkipTLSVerify disables TLS certificate verification when the operator
+                  contacts the content image registry to check reachability or verify file checksums.
+                  Use this when the registry uses a self-signed or private-CA certificate.
+                  Note: this flag only affects the operator's pre-verification calls; the actual
+                  firmware-update DaemonSet image pull is controlled by the node's container runtime.
+                type: boolean
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: Node selector to target specific nodes for firmware update.
+                type: object
+              pciDeviceID:
+                description: Target PCI Device ID in case the node has multiple GPU
+                  types. Format is '0xabcd'.
+                type: string
+              tolerations:
+                description: Tolerations needed to be scheduled to the node.
+                items:
+                  description: |-
+                    The pod this Toleration is attached to tolerates any taint that matches
+                    the triple <key,value,effect> using the matching operator <operator>.
+                  properties:
+                    effect:
+                      description: |-
+                        Effect indicates the taint effect to match. Empty means match all taint effects.
+                        When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                      type: string
+                    key:
+                      description: |-
+                        Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                        If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                      type: string
+                    operator:
+                      description: |-
+                        Operator represents a key's relationship to the value.
+                        Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod can
+                        tolerate all taints of a particular category.
+                      type: string
+                    tolerationSeconds:
+                      description: |-
+                        TolerationSeconds represents the period of time the toleration (which must be
+                        of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                        it is not set, which means tolerate the taint forever (do not evict). Zero and
+                        negative values will be treated as 0 (evict immediately) by the system.
+                      format: int64
+                      type: integer
+                    value:
+                      description: |-
+                        Value is the taint value the toleration matches to.
+                        If the operator is Exists, the value should be empty, otherwise just a regular string.
+                      type: string
+                  type: object
+                type: array
+              updateMethod:
+                enum:
+                - canary
+                - direct
+                type: string
+              updateTaint:
+                default: gpufirmware-update
+                description: |-
+                  Taint key to be applied to nodes during firmware update.
+                  Taint value is always NoSchedule.
+                type: string
+              updaterImage:
+                description: |-
+                  Updater container to run the firmware update.
+                  Should container xpu-smi tool that is used to perform the updates.
+                type: string
+            required:
+            - content
+            - updateMethod
+            - updateTaint
+            - updaterImage
+            type: object
+          status:
+            description: GPUFirmwareUpdateStatus defines the observed state of GPUFirmwareUpdate.
+            properties:
+              messages:
+                description: Messages contains informational or error messages related
+                  to the update process.
+                items:
+                  type: string
+                type: array
+              nodeInfos:
+                description: Substatus for nodes.
+                properties:
+                  allNodes:
+                    items:
+                      type: string
+                    type: array
+                  completedNodes:
+                    items:
+                      type: string
+                    type: array
+                  drainingNodes:
+                    items:
+                      type: string
+                    type: array
+                  errorNodes:
+                    items:
+                      type: string
+                    type: array
+                  jobs:
+                    items:
+                      type: string
+                    type: array
+                  pendingNodes:
+                    items:
+                      type: string
+                    type: array
+                  updatingNodes:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              state:
+                description: |-
+                  Indicates the current state of the firmware update process.
+                  Moves from "" (not started) -> "draining" -> "updating" -> "cleanup" -> "completed" or "error".
+                type: string
+            required:
+            - messages
+            - nodeInfos
+            - state
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -1,0 +1,51 @@
+name: validation e2e
+on:
+  workflow_call:
+    inputs:
+      runner:
+        required: true
+        type: string
+        default: kubernetes-gpu-ci
+      runtarget:
+        required: false
+        type: string
+        default: test-e2e
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  e2e:
+    name: Run e2e with GPU HW
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v4
+        with:
+          clean: true
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+      - name: Build operator container
+        run: |
+          make docker-build
+      - name: Install dependencies
+        run: |
+          mkdir -p $(pwd)/bin
+          export PATH=$PATH:$(pwd)/bin
+          make helm kind
+      - name: Update helm dependencies
+        run: |
+          export PATH=$PATH:$(pwd)/bin
+          helm dep update ./charts/gpu-base-operator
+      - name: Run e2e tests
+        run: |
+          export PATH=$PATH:$(pwd)/bin
+          make ${{ inputs.runtarget }}
+      - name: Tear down Kind cluster
+        if: always()
+        continue-on-error: true
+        run: |
+          make cleanup-test-e2e

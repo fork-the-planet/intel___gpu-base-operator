@@ -1,0 +1,276 @@
+/*
+Copyright 2025 Intel Corporation. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controller
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	apps "k8s.io/api/apps/v1"
+	core "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	v1alpha "github.com/intel/gpu-base-operator/api/v1alpha1"
+	"github.com/intel/gpu-base-operator/config/deployments"
+)
+
+type DevicePluginReconciler struct {
+	client.Client
+	Scheme *runtime.Scheme
+	Opts   ControllerOpts
+}
+
+const (
+	dpValue = "intel-gpu-plugin"
+)
+
+func logLevelForDp(spec *v1alpha.ClusterPolicy) int32 {
+	logLevel := int32(0)
+	logLevel = max(logLevel, spec.Spec.LogLevel)
+	logLevel = max(logLevel, spec.Spec.DevicePluginSpec.LogLevel)
+
+	return logLevel
+}
+
+func hexArgStr(s []string) string {
+	a := []string{}
+	for _, str := range s {
+		if !strings.HasPrefix(str, "0x") {
+			str = "0x" + str
+		}
+
+		a = append(a, str)
+	}
+	return strings.Join(a, ",")
+}
+
+func dpArgs(spec *v1alpha.ClusterPolicy) []string {
+	args := []string{}
+
+	dpspec := spec.Spec.DevicePluginSpec
+
+	if spec.Spec.ResourceMonitoring {
+		args = append(args, "-enable-monitoring")
+	}
+
+	logLevel := logLevelForDp(spec)
+	if logLevel > 0 {
+		args = append(args, fmt.Sprintf("-v=%d", logLevel))
+	}
+
+	if spec.Spec.HealthinessSpec != nil {
+		args = append(args, "-health-management")
+		if spec.Spec.HealthinessSpec.CoreTemperatureThreshold > 0 {
+			args = append(args, fmt.Sprintf("-gpu-temp-limit=%d", spec.Spec.HealthinessSpec.CoreTemperatureThreshold))
+		}
+		if spec.Spec.HealthinessSpec.MemoryTemperatureThreshold > 0 {
+			args = append(args, fmt.Sprintf("-memory-temp-limit=%d", spec.Spec.HealthinessSpec.MemoryTemperatureThreshold))
+		}
+	}
+
+	if len(dpspec.ByPathMode) > 0 {
+		args = append(args, fmt.Sprintf("-bypath=%s", dpspec.ByPathMode))
+	}
+
+	if len(dpspec.AllowIDs) > 0 {
+		args = append(args, fmt.Sprintf("-allow-ids=%s", hexArgStr(dpspec.AllowIDs)))
+	}
+
+	if len(dpspec.DenyIDs) > 0 {
+		args = append(args, fmt.Sprintf("-deny-ids=%s", hexArgStr(dpspec.DenyIDs)))
+	}
+
+	return args
+}
+
+func l0Args(spec *v1alpha.ClusterPolicy) (args []string) {
+	v := logLevelForDp(spec)
+
+	if v > 0 {
+		args = append(args, fmt.Sprintf("-v=%d", v))
+	}
+
+	return args
+}
+
+func (r *DevicePluginReconciler) updateDaemonSetObject(ds *apps.DaemonSet, spec *v1alpha.ClusterPolicy) {
+	name := fmt.Sprintf("%s-device-plugin", spec.Name)
+
+	ds.Name = name
+	ds.Namespace = r.Opts.Namespace
+	ds.Labels[ownerKey] = spec.Name
+
+	dspec := &spec.Spec.DevicePluginSpec
+
+	ds.Spec.Template.Spec.Containers[0].Image = dspec.PluginImage
+	ds.Spec.Template.Spec.Containers[1].Image = dspec.LevelzeroImage
+
+	ds.Spec.Template.Spec.Containers[0].Args = dpArgs(spec)
+	ds.Spec.Template.Spec.Containers[1].Args = l0Args(spec)
+
+	ds.Spec.Template.Spec.NodeSelector = map[string]string{
+		"kubernetes.io/arch": "amd64",
+	}
+
+	if len(spec.Spec.NodeSelector) > 0 {
+		for k, v := range spec.Spec.NodeSelector {
+			ds.Spec.Template.Spec.NodeSelector[k] = v
+		}
+	}
+
+	if spec.Spec.UseNFDLabeling {
+		ds.Spec.Template.Spec.NodeSelector["intel.feature.node.kubernetes.io/gpu"] = trueValue
+	}
+
+	if len(spec.Spec.Tolerations) > 0 {
+		ds.Spec.Template.Spec.Tolerations = spec.Spec.Tolerations
+	} else {
+		ds.Spec.Template.Spec.Tolerations = nil
+	}
+
+	cspec := &ds.Spec.Template.Spec
+
+	secrets := []core.LocalObjectReference{}
+	if r.Opts.SecretName != "" {
+		secrets = append(secrets, core.LocalObjectReference{Name: r.Opts.SecretName})
+	}
+	if spec.Spec.PullSecret != nil {
+		secrets = append(secrets, *spec.Spec.PullSecret)
+	}
+
+	if len(secrets) > 0 {
+		cspec.ImagePullSecrets = secrets
+	} else {
+		cspec.ImagePullSecrets = nil
+	}
+}
+
+func (r *DevicePluginReconciler) createDaemonSet(ctx context.Context, obj client.Object) (ctrl.Result, error) {
+	spec := obj.(*v1alpha.ClusterPolicy)
+
+	ds := deployments.DevicePluginDaemonset()
+
+	r.updateDaemonSetObject(ds, spec)
+
+	if err := ctrl.SetControllerReference(obj, ds, r.Scheme); err != nil {
+		klog.Error(err, "unable to set controller reference")
+
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Create(ctx, ds); err != nil {
+		klog.Error(err, "unable to create DaemonSet")
+
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DevicePluginReconciler) removeDeploymentIfExists(ctx context.Context) (ctrl.Result, error) {
+	klog.V(4).Info("Removing Device Plugin deployment")
+
+	crName := r.Opts.ReqName
+
+	dss := &apps.DaemonSetList{}
+	labels := client.MatchingLabels{
+		appLabel: dpValue,
+		ownerKey: crName,
+	}
+
+	if err := r.List(ctx, dss, client.InNamespace(r.Opts.Namespace), labels); err != nil {
+		klog.Error(err, "unable to list child DaemonSets")
+
+		return ctrl.Result{}, err
+	}
+
+	if len(dss.Items) == 0 {
+		klog.V(4).Info("No DevicePlugin deployment found, nothing to do")
+
+		return ctrl.Result{}, nil
+	}
+
+	if err := r.Delete(ctx, &dss.Items[0]); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	klog.V(4).Info("DevicePlugin deployment removed")
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DevicePluginReconciler) Reconcile(ctx context.Context, cp *v1alpha.ClusterPolicy) (ctrl.Result, error) {
+	_ = logf.FromContext(ctx)
+
+	if cp == nil || !cp.DeletionTimestamp.IsZero() {
+		return r.removeDeploymentIfExists(ctx)
+	}
+
+	if cp.Spec.ResourceRegistration != "dp" {
+		cp.Status.DevicePluginStatus = notAvailableStatus
+
+		return r.removeDeploymentIfExists(ctx)
+	}
+
+	var olderDs apps.DaemonSetList
+	if err := r.List(ctx, &olderDs, client.InNamespace(r.Opts.Namespace), client.MatchingLabels{appLabel: dpValue}); err != nil {
+		klog.Error(err, "unable to list child DaemonSets")
+
+		return ctrl.Result{}, err
+	}
+
+	if len(olderDs.Items) == 0 {
+		return r.createDaemonSet(ctx, cp)
+	}
+
+	// Update DaemonSet
+
+	ds := &olderDs.Items[0]
+	originalDs := ds.DeepCopy()
+
+	r.updateDaemonSetObject(ds, cp)
+
+	dsDiff := cmp.Diff(originalDs.Spec.Template.Spec, ds.Spec.Template.Spec, cmpopts.EquateEmpty())
+	if len(dsDiff) > 0 {
+		klog.Info("DS difference", "diff", dsDiff)
+
+		if err := r.Update(ctx, ds); err != nil {
+			klog.Error(err, "unable to update daemonset", "DaemonSet", ds)
+
+			return ctrl.Result{}, err
+		}
+	}
+
+	if err := r.List(ctx, &olderDs, client.InNamespace(r.Opts.Namespace), client.MatchingLabels{appLabel: dpValue}); err != nil {
+		klog.Error(err, "unable to list child DaemonSets")
+
+		return ctrl.Result{}, err
+	}
+
+	cp.Status.DevicePluginStatus = fmt.Sprintf("%d/%d",
+		olderDs.Items[0].Status.NumberReady, olderDs.Items[0].Status.DesiredNumberScheduled)
+
+	return ctrl.Result{}, nil
+}

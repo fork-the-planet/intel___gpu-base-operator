@@ -1,0 +1,8 @@
+resources:
+- ../base
+- claim.yaml
+
+patches:
+  - path: resource.yaml
+    target:
+      kind: Pod

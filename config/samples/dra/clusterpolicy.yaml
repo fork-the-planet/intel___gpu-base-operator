@@ -1,0 +1,18 @@
+apiVersion: intel.com/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: gpu-policy
+spec:
+  resourceRegistration: dra
+  logLevel: 4
+
+  health:
+    coreTemperatureThreshold: 89
+    memoryTemperatureThreshold: 99
+    checkIntervalSeconds: 12
+
+  dra:
+    image: ghcr.io/intel/intel-resource-drivers-for-kubernetes/intel-gpu-resource-driver:v0.10.0@sha256:746150e64010881dbfdaeb74771703b13cac365a89ee47c4d7499d686ea4163f
+    logLevel: 2
+    deviceTaints: false
+    podHealthCheck: true

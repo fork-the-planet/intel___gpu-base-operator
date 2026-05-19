@@ -1,0 +1,3 @@
+resources:
+- clusterpolicy.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

@@ -1,0 +1,76 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: MIT
+# @file xpum.yaml
+#
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: intel-xpumd
+  labels:
+    app.kubernetes.io/name: xpumd
+    app: "intel-xpumanager"
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xpumd
+      app: "intel-xpumanager"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: xpumd
+        app: "intel-xpumanager"
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        kubernetes.io/arch: "amd64"
+      automountServiceAccountToken: false
+      containers:
+      - name: xpumd
+        image: "changed.io/by/the/operator:reconcile"
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--config=/etc/xpumd/config.yaml"
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          # Required for GPU device access, unless container runtime allows device file owner override:
+          # - https://kubernetes.io/blog/2021/11/09/non-root-containers-and-devices/
+          # Required also for all other metrics than frequency, memory usage, power
+          runAsUser: 0
+          capabilities:
+            drop:
+              - ALL
+            add:
+              # required for engine utilization
+              # (bug in underlying layers, PERFMON should be enough)
+              - SYS_ADMIN
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 128Mi
+          # map all GPUs to container
+          limits:
+            cpu: 100m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/xpumd
+          readOnly: true
+        - name: rundir
+          mountPath: /run/xpumd
+      volumes:
+      - name: config
+        configMap:
+          name: changed-by-the-operator
+      - name: rundir
+        hostPath:
+          path: /run/xpumd
+          type: DirectoryOrCreate
+          readOnly: false

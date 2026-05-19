@@ -1,0 +1,22 @@
+name: Build and Push (self-hosted)
+on:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
+
+permissions:
+  pull-requests: read # for golangci/golangci-lint-action to fetch pull requests
+  contents: read
+  packages: write
+
+jobs:
+  push:
+    name: Publish Operator image
+    uses: "./.github/workflows/build-push-common.yaml"
+    with:
+      runner: self-hosted
+    secrets: inherit

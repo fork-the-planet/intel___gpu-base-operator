@@ -1,0 +1,54 @@
+# Intel GPU base operator policy Helm chart
+
+Helm chart is for installing the Intel GPU base operator policy. The operator has to be installed before the policy. See [the operator chart](../gpu-base-operator/README.md).
+
+
+## Helm install
+```
+helm install --namespace "intel-gpu-operator" --version 0.0.1 \
+  gpu-policy oci://ghcr.io/intel/gpu-base-operator/intel-gpu-base-operator-policy-chart
+```
+
+## Helm upgrade
+```
+helm upgrade --namespace "intel-gpu-operator" --create-namespace --version 0.0.2 \
+  gpu-policy oci://ghcr.io/intel/gpu-base-operator/intel-gpu-base-operator-policy-chart
+```
+
+## Helm uninstall
+```
+helm uninstall --namespace "intel-gpu-operator" gpu-policy
+```
+
+## Configuration
+See [Customizing the Chart Before Installing](https://helm.sh/docs/intro/using_helm/#customizing-the-chart-before-installing).
+
+| Key | Default Value | Description |
+|---|---|---|
+| resourceRegistration | dp | Resource registration mode (dp or dra). |
+| useNFDLabeling | false | Enable Node Feature Discovery labeling. |
+| resourceMonitoring | true | Enable resource monitoring. |
+| enableKueue | false | Set up Kueue queues for node resources. |
+| prometheusIntegration | false | Integrate metrics into Prometheus. |
+| logLevel | 1 | Global log level. |
+| health.coreTemperatureThreshold | 88 | Core temperature threshold for health checks (°C). |
+| health.memoryTemperatureThreshold | 99 | Memory temperature threshold for health checks (°C). |
+| health.checkIntervalSeconds | 12 | Interval for health checks (seconds). |
+| dp.plugin | intel/intel-gpu-plugin:0.35.0 | DP plugin image. |
+| dp.levelzero | intel/intel-gpu-levelzero:0.35.0 | DP Level Zero image. |
+| dp.logLevel | 2 | DP log level. |
+| dp.byPathMode | single | DP by-path mounting mode |
+| dp.allowIDs | [] | Allowed PCI Device IDs |
+| dp.denyIDs | [] | Denied PCI Device IDs |
+| dra.image | ghcr.io/intel/intel-resource-drivers-for-kubernetes/intel-gpu-resource-driver:v0.10.0 | DRA driver image. |
+| dra.logLevel | 2 | DRA log level. |
+| dra.deviceTaints | false | Enable device taints. |
+| dra.podHealthCheck | true | Health check for DRA Pod. |
+| xpu.image | ghcr.io/intel/xpumanager/xpumd:v2.0.0-rc.0 | XPU manager image. |
+| xpu.logLevel | 2 | XPU manager log level. |
+| xpu.monitoringResource | xe_monitoring | Monitoring resource for XPUMD with device plugin. |
+| xpu.configMapOverride | "" | Override the default XPUM configuration ConfigMap name. |
+| kueue.equalResources | [] | List of ClusterQueue configurations. |
+| pullSecret | null | Image pull secret. |
+| nodeSelector | {} | Node selector for scheduling pods. |
+| tolerations | [] | Tolerations for scheduling pods. |

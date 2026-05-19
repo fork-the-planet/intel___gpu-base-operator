@@ -1,0 +1,10 @@
+- op: add
+  path: /spec/containers/0/resources/claims
+  value:
+    - name: resource
+
+- op: add
+  path: /spec/resourceClaims
+  value:
+      - name: resource
+        resourceClaimTemplateName: example-gpu-claim

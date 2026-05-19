@@ -1,0 +1,74 @@
+apiVersion: intel.com/v1alpha1
+kind: ClusterPolicy
+metadata:
+  name: gpu-{{ .Values.resourceRegistration }}
+spec:
+  resourceRegistration: {{ .Values.resourceRegistration }}
+  useNFDLabeling: {{ .Values.useNFDLabeling }}
+  resourceMonitoring: {{ .Values.resourceMonitoring }}
+  prometheusIntegration: {{ .Values.prometheusIntegration }}
+  enableKueue: {{ .Values.enableKueue }}
+
+  {{- if .Values.kueue }}
+  kueue:
+    equalResources:
+    {{- range $clusterQueue := .Values.kueue.equalResources }}
+      - name: {{ $clusterQueue.name }}
+        localQueues:
+        {{- range $localQueue := $clusterQueue.localQueues }}
+          - name: {{ $localQueue.name }}
+            namespace: {{ $localQueue.namespace }}
+        {{- end }}
+    {{- end }}
+  {{- end }}
+
+  logLevel: {{ .Values.logLevel }}
+
+  health:
+    checkIntervalSeconds: {{ .Values.health.checkIntervalSeconds }}
+    coreTemperatureThreshold: {{ .Values.health.coreTemperatureThreshold }}
+    memoryTemperatureThreshold: {{ .Values.health.memoryTemperatureThreshold }}
+
+{{- if eq .Values.resourceRegistration "dp" }}
+  dp:
+    plugin: {{ .Values.dp.plugin }}
+    levelzero: {{ .Values.dp.levelzero }}
+    logLevel: {{ .Values.dp.logLevel }}
+    byPathMode: {{ .Values.dp.byPathMode }}
+{{- if .Values.dp.allowIDs }}
+    allowIDs:
+{{ toYaml .Values.dp.allowIDs | default "[]" | indent 6 }}
+{{- end }}
+{{- if .Values.dp.denyIDs }}
+    denyIDs:
+{{ toYaml .Values.dp.denyIDs | default "[]" | indent 6 }}
+{{- end }}
+{{- else if eq .Values.resourceRegistration "dra" }}
+  dra:
+    image: {{ .Values.dra.image }}
+    logLevel: {{ .Values.dra.logLevel }}
+    deviceTaints: {{ .Values.dra.deviceTaints | default false }}
+    podHealthCheck: {{ .Values.dra.podHealthCheck | default true }}
+{{- else }}
+    {{- fail "Please select either dp or dra" }}
+{{- end }}
+
+  xpu:
+    image: {{ .Values.xpu.image }}
+    logLevel: {{ .Values.xpu.logLevel }}
+{{- if .Values.xpu.monitoringResource }}
+    monitoringResource: {{ .Values.xpu.monitoringResource | quote }}
+{{- end }}
+{{- if .Values.xpu.configMapOverride }}
+    configMapOverride: {{ .Values.xpu.configMapOverride | default "" }}
+{{- end }}
+
+{{- if .Values.pullSecret }}
+  pullSecret: {{ .Values.pullSecret }}
+{{- end }}
+{{- if .Values.nodeSelector }}
+  nodeSelector: {{ toYaml .Values.nodeSelector | nindent 4 }}
+{{- end }}
+{{- if .Values.tolerations }}
+  tolerations: {{ toYaml .Values.tolerations | nindent 4 }}
+{{- end }}

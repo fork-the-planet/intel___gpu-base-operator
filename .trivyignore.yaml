@@ -1,0 +1,99 @@
+misconfigurations:
+  - id: AVD-KSV-0001
+    statement: |
+      GPU FW Update and GPU device plugin Level-Zero sidecar require
+      privileged:true / allowPrivilegeEscalation:true securityContext settings.
+      NOTE: FW update could also use monitoring/admin access from GPU DP or DRA, and then drop privileged access.
+    paths:
+      - dp/dp.yaml
+      - xpum/xpum-fwupdate-job.yaml
+
+  - id: AVD-KSV-0005
+    statement: "XPUM requires SYS_ADMIN for some GPU metrics"
+    paths:
+      - xpum/xpum.yaml
+
+  - id: AVD-KSV-0012
+    statement: "runAsNonRoot is ok for DRA"
+    paths:
+      - dra/daemonset.yaml
+      - dp/dp.yaml
+      - xpum/xpum.yaml
+      - xpum/xpum-fwupdate-job.yaml
+
+  - id: AVD-KSV-0017
+    statement: "DP levelzero & fwupdate requires privileged access / allowPrivilegeEscalation"
+    paths:
+      - dp/dp.yaml
+      - xpum/xpum-fwupdate-job.yaml
+
+  - id: AVD-KSV-0022
+    statement: "XPUM requires SYS_ADMIN for some GPU metrics"
+    paths:
+      - xpum/xpum.yaml
+
+  - id: AVD-KSV-0023
+    statement: "DRA, NFD, XPUMD and Plugin require access to hostPath"
+    paths:
+      - dp/dp.yaml
+      - dra/daemonset.yaml
+      - xpum/xpum.yaml
+
+  - id: AVD-KSV-0025
+    statement: "container_device_plugin_t is a valid SELinux profile"
+    paths:
+      - dp/dp.yaml
+
+  - id: AVD-KSV-0013
+    statement: "Tag is replaced by the operator"
+    paths:
+      - dp/dp.yaml
+      - xpum/xpum.yaml
+      - dra/daemonset.yaml
+
+  - id: AVD-KSV-0032
+    statement: "Dockerhub.io is trusted"
+
+  - id: AVD-KSV-0033
+    statement: "Dockerhub.io is trusted"
+
+  - id: AVD-KSV-0034
+    statement: "Dockerhub.io is trusted"
+
+  - id: AVD-KSV-0035
+    statement: "Dockerhub.io is trusted"
+
+  - id: AVD-KSV-0104
+    statement: "DP is not deployed to default NS but to where-ever the operator is deployed"
+    paths:
+      - dp/dp.yaml
+      - xpum/xpum.yaml
+      - xpum/xpum-fwupdate-job.yaml
+
+  - id: AVD-KSV-0118
+    statement: "DP is not deployed to default NS but to where-ever the operator is deployed"
+    paths:
+      - dp/dp.yaml
+      - dra/daemonset.yaml
+      - xpum/xpum.yaml
+      - xpum/xpum-fwupdate-job.yaml
+
+  - id: AVD-KSV-0125
+    statement: "Dockerhub.io is ok"
+    paths:
+      - dp/dp.yaml
+      - xpum/xpum.yaml
+      - dra/daemonset.yaml
+      - xpum/xpum-fwupdate-job.yaml
+
+  - id: AVD-KSV-0121
+    statement: "/sys is required for DRA"
+    paths:
+      - dra/daemonset.yaml
+
+  - id: AVD-DS-0002
+    statement: ""
+    paths:
+      - fwfiles/Dockerfile
+      - fwupdater/Dockerfile
+      - fwupdater-mock/Dockerfile

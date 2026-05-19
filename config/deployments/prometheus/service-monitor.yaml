@@ -1,0 +1,23 @@
+#
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: MIT
+# @file service-monitor.yaml
+#
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: intel-xpumanager
+  labels:
+    app: intel-xpumanager
+spec:
+  selector:
+    matchLabels:
+      app: intel-xpumanager
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 5s

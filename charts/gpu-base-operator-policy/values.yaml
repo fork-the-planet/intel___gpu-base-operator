@@ -1,0 +1,41 @@
+resourceRegistration: dp
+useNFDLabeling: false
+resourceMonitoring: true
+prometheusIntegration: false
+enableKueue: false
+
+logLevel: 1
+
+health:
+  coreTemperatureThreshold: 88
+  memoryTemperatureThreshold: 99
+  checkIntervalSeconds: 12
+
+dp:
+  plugin: docker.io/intel/intel-gpu-plugin:0.35.0@sha256:34697f9c286857da986381595ac2a693524a83c831955247dae47dfda4d2f526
+  levelzero: docker.io/intel/intel-gpu-levelzero:0.35.0@sha256:a8a0729f253de6e8e117a7ef621883a1228f7304747076dcd1446c3e18804021
+  logLevel: 2
+  byPathMode: single
+
+dra:
+  image: ghcr.io/intel/intel-resource-drivers-for-kubernetes/intel-gpu-resource-driver:v0.10.0@sha256:746150e64010881dbfdaeb74771703b13cac365a89ee47c4d7499d686ea4163f
+  logLevel: 2
+  deviceTaints: false
+  podHealthCheck: true
+
+xpu:
+  image: ghcr.io/intel/xpumanager/xpumd:v2.0.0-rc.0@sha256:8f020012f68888314402c0332a53718ace4ade9913476bbd125af89edb760a8b
+  logLevel: 2
+  monitoringResource: xe_monitoring
+  configMapOverride: ""
+
+kueue:
+  equalResources:
+    - name: gpu-cluster-queue
+      localQueues:
+      - name: gpu-queue
+        namespace: default
+
+pullSecret: null
+nodeSelector: {}
+tolerations: []
