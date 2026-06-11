@@ -17,7 +17,7 @@ require (
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/kueue v0.15.2
-	sigs.k8s.io/node-feature-discovery/api/nfd v0.17.3
+	sigs.k8s.io/node-feature-discovery/api/nfd v0.18.3
 	sigs.k8s.io/yaml v1.6.0
 )
 
